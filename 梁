@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="小智">
+<meta name="mobile-web-app-capable" content="yes">
+<title>小智 · AI 智能体</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --line:#2a2f3a;
+  --text:#e6e8ee; --dim:#8b93a7; --brand:#4f8cff; --ok:#38d39f; --warn:#ffb020;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overscroll-behavior:none;background:var(--bg)}
+body{
+  color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;touch-action:manipulation;
+}
+#app{display:flex;flex-direction:column;height:100dvh;height:100vh}
+@supports (height:100dvh){#app{height:100dvh}}
+
+/* 顶栏 */
+header{
+  display:flex;align-items:center;gap:10px;flex:0 0 auto;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background:linear-gradient(180deg,#171a21,#14161c);
+  border-bottom:1px solid var(--line);
+}
+.logo{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#4f8cff,#8b5cf6);
+  display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff;flex:0 0 auto}
+.title{font-weight:600;font-size:16px;line-height:1.2}
+.sub{font-size:11px;color:var(--dim)}
+header .sp{flex:1}
+.icon-btn{
+  width:38px;height:38px;border-radius:12px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--text);font-size:17px;display:grid;place-items:center;cursor:pointer;
+}
+.icon-btn:active{transform:scale(.94)}
+
+/* 消息区 */
+main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 6px;scroll-behavior:smooth}
+.msg{margin-bottom:12px;display:flex;flex-direction:column;animation:in .22s ease}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg.user{align-items:flex-end}
+.bubble{max-width:88%;padding:10px 13px;border-radius:16px;word-break:break-word;white-space:pre-wrap}
+.msg.user .bubble{background:var(--brand);color:#fff;border-bottom-right-radius:5px}
+.msg.agent .bubble{background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:5px}
+.step{
+  max-width:92%;font-size:12.5px;color:var(--dim);background:var(--panel);
+  border:1px solid var(--line);border-radius:12px;padding:8px 11px;margin-bottom:6px;white-space:pre-wrap;
+}
+.step b{color:var(--text);font-weight:600}
+.step .act{color:var(--brand);font-weight:600}
+.obs{
+  max-width:92%;font-size:12.5px;color:var(--ok);background:rgba(56,211,159,.08);
+  border:1px solid rgba(56,211,159,.25);border-radius:12px;padding:8px 11px;margin-bottom:6px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.obs.err{color:#ff7b72;background:rgba(255,123,114,.08);border-color:rgba(255,123,114,.28)}
+.cursor::after{content:"▍";animation:blink 1s steps(2) infinite;color:var(--brand)}
+@keyframes blink{50%{opacity:0}}
+.tip{text-align:center;color:var(--dim);font-size:12px;padding:10px 0}
+
+/* 输入区 */
+footer{
+  flex:0 0 auto;display:flex;gap:8px;align-items:flex-end;
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+  background:#14161c;border-top:1px solid var(--line);
+}
+#input{
+  flex:1;resize:none;max-height:120px;min-height:44px;padding:11px 14px;
+  border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:var(--text);
+  font:inherit;outline:none;line-height:1.4;
+}
+#input:focus{border-color:var(--brand)}
+#send{
+  width:48px;height:48px;flex:0 0 auto;border-radius:14px;border:0;cursor:pointer;
+  background:var(--brand);color:#fff;font-size:20px;display:grid;place-items:center;
+}
+#send:disabled{background:var(--line);color:var(--dim)}
+#send:active:not(:disabled){transform:scale(.94)}
+
+/* 设置抽屉 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:.22s;z-index:40}
+.mask.on{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;max-height:88vh;overflow-y:auto;
+  background:var(--panel);border-radius:20px 20px 0 0;border-top:1px solid var(--line);
+  transform:translateY(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);
+  padding:8px 18px calc(20px + env(safe-area-inset-bottom));
+}
+.drawer.on{transform:none}
+.handle{width:40px;height:4px;border-radius:2px;background:var(--line);margin:8px auto 14px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
+.field input,.field select{
+  width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--text);font:inherit;outline:none;
+}
+.field input:focus,.field select:focus{border-color:var(--brand)}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.btn{
+  width:100%;padding:13px;border-radius:12px;border:0;font:inherit;font-weight:600;
+  background:var(--brand);color:#fff;cursor:pointer;
+}
+.btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn:active{transform:scale(.98)}
+.hint{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:6px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">智</div>
+    <div>
+      <div class="title">小智</div>
+      <div class="sub" id="status">演示模式 · 无需配置</div>
+    </div>
+    <div class="sp"></div>
+    <button class="icon-btn" id="btnClear" title="清空对话">🗑</button>
+    <button class="icon-btn" id="btnSet" title="设置">⚙</button>
+  </header>
+
+  <main id="chat">
+    <div class="tip">我可以算数学、报时间、记备忘 —— 试试「算一下 (123*456+789)/3」</div>
+  </main>
+
+  <footer>
+    <textarea id="input" rows="1" placeholder="给小智布置任务…" enterkeyhint="send"></textarea>
+    <button id="send" disabled>↑</button>
+  </footer>
+</div>
+
+<div class="mask" id="mask"></div>
+<div class="drawer" id="drawer">
+  <div class="handle"></div>
+
+  <div class="field">
+    <label>运行模式</label>
+    <select id="mode">
+      <option value="demo">演示模式（离线规则，零配置）</option>
+      <option value="api">大模型模式（OpenAI 兼容接口）</option>
+    </select>
+  </div>
+
+  <div id="apiBox" style="display:none">
+    <div class="field">
+      <label>服务商预设</label>
+      <select id="preset">
+        <option value="deepseek">DeepSeek</option>
+        <option value="qwen">通义千问（阿里云）</option>
+        <option value="kimi">Kimi（月之暗面）</option>
+        <option value="zhipu">智谱 GLM</option>
+        <option value="openai">OpenAI</option>
+        <option value="custom">自定义</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Base URL</label>
+      <input id="baseUrl" placeholder="https://api.deepseek.com/v1" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>模型名称</label>
+      <input id="model" placeholder="deepseek-chat" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>API Key</label>
+      <input id="apiKey" type="password" placeholder="sk-..." autocapitalize="off" spellcheck="false">
+      <div class="hint">Key 只保存在你手机本地的 localStorage，不会上传到任何第三方。</div>
+    </div>
+    <div class="field">
+      <label>最大推理步数：<span id="stepsVal">8</span></label>
+      <input id="maxSteps" type="range" min="2" max="16" value="8" style="padding:0">
+    </div>
+  </div>
+
+  <button class="btn" id="btnSave">保存设置</button>
+  <div style="height:10px"></div>
+  <button class="btn ghost" id="btnClose">关闭</button>
+  <div class="hint">提示：首次打开后，用浏览器菜单「添加到主屏幕 / 添加到桌面」，就能像 App 一样全屏使用。</div>
+</div>
+
+<script>
+/* =========================================================
+   0. PWA：内联 manifest + 图标（单文件也能被"添加到主屏幕"）
+   ========================================================= */
+(function(){
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient></defs>
+    <rect width="512" height="512" rx="112" fill="url(#g)"/>
+    <circle cx="256" cy="212" r="92" fill="#fff" opacity=".95"/>
+    <rect x="168" y="330" width="176" height="60" rx="30" fill="#fff" opacity=".8"/>
+  </svg>`;
+  const icon = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+  const link = document.createElement('link');
+  link.rel = 'apple-touch-icon';
+  link.href = icon;
+  document.head.appendChild(link);
+
+  const manifest = {
+    name: '小智 · AI 智能体', short_name: '小智', start_url: '.', scope: '.',
+    display: 'standalone', orientation: 'portrait',
+    background_color: '#0f1115', theme_color: '#0f1115',
+    icons: [{ src: icon, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }]
+  };
+  const ml = document.createElement('link');
+  ml.rel = 'manifest';
+  ml.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+  document.head.appendChild(ml);
+})();
+
+/* =========================================================
+   1. 工具层
+   ========================================================= */
+
+/** 安全计算器：递归下降解析，不使用 eval */
+function calc(input){
+  const s = String(input)
+    .replace(/\s+/g, '')
+    .replace(/[×xX]/g, '*')
+    .replace(/[÷]/g, '/')
+    .replace(/[（]/g, '(').replace(/[）]/g, ')')
+    .replace(/[－—]/g, '-')
+    .replace(/[＋]/g, '+');
+  if (s.length > 300) throw new Error('表达式过长');
+  if (!s) throw new Error('表达式为空');
+
+  let i = 0;
+  const peek = () => s[i];
+
+  function parseExpr(){
+    let v = parseTerm();
+    while (peek() === '+' || peek() === '-'){
+      const op = s[i++];
+      const r = parseTerm();
+      v = op === '+' ? v + r : v - r;
+    }
+    return v;
+  }
+  function parseTerm(){
+    let v = parseUnary();
+    while (peek() === '*' || peek() === '/' || peek() === '%'){
+      const op = s[i++];
+      const r = parseUnary();
+      if ((op === '/' || op === '%') && r === 0) throw new Error('除数不能为 0');
+      v = op === '*' ? v * r : op === '/' ? v / r : v % r;
+    }
+    return v;
+  }
+  function parseUnary(){
+    if (peek() === '-'){ i++; return -parseUnary(); }
+    if (peek() === '+'){ i++; return  parseUnary(); }
+    return parsePower();
+  }
+  function parsePower(){
+    const base = parseAtom();
+    if (peek() === '^'){ i++; return Math.pow(base, parseUnary()); }
+    return base;
+  }
+  function parseAtom(){
+    if (peek() === '('){
+      i++;
+      const v = parseExpr();
+      if (s[i] !== ')') throw new Error('括号不匹配');
+      i++;
+      return v;
+    }
+    const start = i;
+    while (i < s.length && /[0-9.]/.test(s[i])) i++;
+    if (start === i) throw new Error('无法解析：' + s.slice(i, i + 6));
+    const n = parseFloat(s.slice(start, i));
+    if (!isFinite(n)) throw new Error('数字无效');
+    return n;
+  }
+
+  const val = parseExpr();
+  if (i !== s.length) throw new Error('存在多余字符：' + s.slice(i));
+  if (!isFinite(val)) throw new Error('结果不是有限数');
+  return Number.isInteger(val) ? val : Math.round(val * 1e10) / 1e10;
+}
+
+/** 本地记忆（用 localStorage 模拟"长期记忆"） */
+const Memory = {
+  all(){ try { return JSON.parse(localStorage.getItem('zx_mem') || '{}'); } catch { return {}; } },
+  save(o){ localStorage.setItem('zx_mem', JSON.stringify(o)); }
+};
+
+const TOOLS = {
+  calculator: {
+    desc: '计算数学表达式，支持 + - * / % ^ 和括号。输入 {"expression":"(1+2)*3"}',
+    run: ({ expression }) => {
+      if (!expression) throw new Error('缺少 expression');
+      return String(calc(expression));
+    }
+  },
+  now: {
+    desc: '获取当前日期和时间。输入 {}',
+    run: () => new Date().toLocaleString('zh-CN', { hour12: false })
+  },
+  remember: {
+    desc: '记住一条信息，供以后查询。输入 {"key":"名称","value":"内容"}',
+    run: ({ key, value }) => {
+      if (!key) throw new Error('缺少 key');
+      const m = Memory.all();
+      m[key] = value ?? '';
+      Memory.save(m);
+      return `已记住：${key} = ${m[key]}`;
+    }
+  },
+  recall: {
+    desc: '查询之前记住的信息。输入 {"key":"名称"}；key 传 "*" 列出全部',
+    run: ({ key }) => {
+      const m = Memory.all();
+      const keys = Object.keys(m);
+      if (!key || key === '*') {
+        return keys.length ? keys.map(k => `${k}：${m[k]}`).join('\n') : '（目前没有任何记忆）';
+      }
+      return key in m ? String(m[key]) : `没有找到「${key}」`;
+    }
+  }
+};
+
+/* =========================================================
+   2. 提示词与输出解析
+   ========================================================= */
+
+function systemPrompt(){
+  const tools = Object.entries(TOOLS)
+    .map(([name, t]) => `- ${name}: ${t.desc}`)
+    .join('\n');
+  return `你是一个手机上的智能体，通过调用工具来完成任务。
+
+可用工具：
+${tools}
+
+请严格按以下格式回复，每次只输出一个步骤：
+
+Thought: 你的推理过程
+Action: 工具名
+Action Input: JSON 对象
+
+当你已经可以给出答案时，改为输出：
+
+Thought: 你的推理
+Final Answer: 给用户的中文回答
+
+规则：
+1. 只能使用上面列出的工具，工具名必须完全一致。
+2. Action Input 必须是合法 JSON。
+3. 绝不能编造 Observation，结果只能来自真实工具返回。
+4. Final Answer 要简洁、直接、中文。`;
+}
+
+/** 从模型输出里解析出 final 或 action */
+function parseOutput(text){
+  const finalM = text.match(/Final\s*Answer\s*[:：]\s*([\s\S]*)/i);
+  if (finalM) return { type: 'final', content: finalM[1].trim() };
+
+  const actM = text.match(/(?:^|\n)\s*Action\s*[:：]\s*([A-Za-z_]\w*)/);
+  if (!actM) return { type: 'final', content: text.trim() || '（无输出）' };
+
+  const inpM = text.match(/Action\s*Input\s*[:：]\s*([\s\S]*)/i);
+  return {
+    type: 'action',
+    name: actM[1],
+    input: tryParseJson(inpM ? inpM[1] : '{}')
+  };
+}
+
+function tryParseJson(raw){
+  let s = String(raw).trim();
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/```[\s\S]*$/, '').trim();
+  const candidates = [s];
+  const greedy = s.match(/\{[\s\S]*\}/);
+  if (greedy) candidates.push(greedy[0]);
+  const lazy = s.match(/\{[\s\S]*?\}/);
+  if (lazy) candidates.push(lazy[0]);
+  for (const c of candidates){
+    try {
+      const o = JSON.parse(c);
+      if (o && typeof o === 'object' && !Array.isArray(o)) return o;
+    } catch {}
+  }
+  return {};
+}
+
+/* =========================================================
+   3. 大模型适配层
+   ========================================================= */
+
+const PRESETS = {
+  deepseek: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  qwen:     { baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+  kimi:     { baseUrl: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
+  zhipu:    { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
+  openai:   { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+  custom:   { baseUrl: '', model: '' }
+};
+
+/** 调用 OpenAI 兼容的 /chat/completions（流式） */
+async function callAPI(messages, cfg, onDelta){
+  const url = cfg.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + cfg.apiKey
+    },
+    body: JSON.stringify({
+      model: cfg.model,
+      messages,
+      temperature: 0.2,
+      stream: true
+    })
+  });
+
+  if (!res.ok){
+    const body = await res.text().catch(() => '');
+    throw new Error(`接口返回 ${res.status}：${body.slice(0, 200)}`);
+  }
+  if (!res.body) throw new Error('当前浏览器不支持流式响应');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '', out = '';
+
+  while (true){
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+
+    let idx;
+    while ((idx = buf.indexOf('\n')) >= 0){
+      const line = buf.slice(0, idx).trim();
+      buf = buf.slice(idx + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') return out;
+      try {
+        const j = JSON.parse(data);
+        const d = j.choices && j.choices[0] && j.choices[0].delta;
+        const piece = d && (d.content || '');
+        if (piece){ out += piece; onDelta && onDelta(piece); }
+      } catch {}
+    }
+  }
+  return out;
+}
+
+/** 演示模式：内置规则模型，离线可用，零配置 */
+function mockLLM(messages){
+  const full = messages.map(m => m.content).join('\n');
+  const taskM = full.match(/任务[:：]\s*([\s\S]*?)(?:\n\n|$)/);
+  const task = (taskM ? taskM[1] : full).trim();
+
+  const obsList = [...full.matchAll(/Observation[:：]\s*([\s\S]*?)(?=\n(?:Thought|Final|任务|$))/g)];
+  if (obsList.length){
+    const last = obsList[obsList.length - 1][1].trim().split('\n')[0];
+    return `Thought: 已经拿到工具结果。\nFinal Answer: ${last}`;
+  }
+
+  // 记忆类
+  let m = task.match(/(?:记住|记一下|帮我记)[：: ]*(.+)/);
+  if (m){
+    const body = m[1].trim();
+    const kv = body.match(/^(.+?)\s*(?:是|为|=|：|:)\s*(.+)$/);
+    const key = kv ? kv[1].trim() : body.slice(0, 8);
+    const val = kv ? kv[2].trim() : body;
+    return `Thought: 用户要我记住一件事。\nAction: remember\nAction Input: ${JSON.stringify({ key, value: val })}`;
+  }
+  if (/回忆|查一下记忆|记住.*什么|我的备忘|列出.*记忆/.test(task)){
+    return `Thought: 用户想查询记忆。\nAction: recall\nAction Input: {"key":"*"}`;
+  }
+
+  // 时间类
+  if (/几点|时间|日期|今天|现在/.test(task)){
+    return `Thought: 需要查询当前时间。\nAction: now\nAction Input: {}`;
+  }
+
+  // 计算类
+  const expr = task.match(/[\d(（][\d\s.+\-*/%^×÷()（）]*[\d)）]/);
+  if (expr && /[+\-*/%^×÷]/.test(expr[0])){
+    const e = expr[0].replace(/[×xX]/g, '*').replace(/[÷]/g, '/');
+    return `Thought: 这是一道计算题。\nAction: calculator\nAction Input: ${JSON.stringify({ expression: e })}`;
+  }
+
+  return `Thought: 演示模式只内置了计算、时间、记忆三类能力。\nFinal Answer: 我是演示模式，目前只会：数学计算、查询时间、记录/查询备忘。想让我做更多事，请点右上角 ⚙ 配置大模型 API Key。`;
+}
+
+/* =========================================================
+   4. 智能体主体
+   ========================================================= */
+
+async function runAgent(task, cfg, ui){
+  const maxSteps = cfg.maxSteps || 8;
+  const messages = [
+    { role: 'system', content: systemPrompt() },
+    { role: 'user', content: `任务：${task}` }
+  ];
+
+  for (let step = 1; step <= maxSteps; step++){
+    let output;
+
+    if (cfg.mode === 'api'){
+      const draft = ui.openDraft();
+      output = await callAPI(messages, cfg, d => draft.append(d));
+      draft.close();
+    } else {
+      const draft = ui.openDraft();
+      output = mockLLM(messages);
+      // 模拟打字效果
+      for (const ch of output){ draft.append(ch); await sleep(6); }
+      draft.close();
+    }
+
+    const parsed = parseOutput(output);
+
+    if (parsed.type === 'final'){
+      ui.final(parsed.content);
+      return parsed.content;
+    }
+
+    // 提取 Thought 用于展示
+    const thoughtM = output.match(/Thought\s*[:：]\s*([\s\S]*?)(?=\n\s*Action\s*[:：]|$)/i);
+    ui.step(step, (thoughtM ? thoughtM[1] : '').trim(), parsed.name, parsed.input);
+
+    // 执行工具
+    let observation, isError = false;
+    const tool = TOOLS[parsed.name];
+    if (!tool){
+      observation = `错误：没有名为「${parsed.name}」的工具。可用工具：${Object.keys(TOOLS).join(', ')}`;
+      isError = true;
+    } else {
+      try {
+        observation = String(await tool.run(parsed.input));
+      } catch (e){
+        observation = `工具执行失败：${e.message}`;
+        isError = true;
+      }
+    }
+    ui.obs(observation, isError);
+
+    messages.push({ role: 'assistant', content: output });
+    messages.push({ role: 'user', content: `Observation: ${observation}` });
+  }
+
+  const msg = `已达到最大推理步数（${maxSteps}），任务未完成。可以拆成更小的任务，或在设置里调大最大步数。`;
+  ui.final(msg);
+  return msg;
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* =========================================================
+   5. 界面
+   ========================================================= */
+
+const $ = id => document.getElementById(id);
+const chatEl = $('chat');
+const inputEl = $('input');
+const sendEl = $('send');
+
+let currentDraft = null;
+
+const ui = {
+  scroll(){ chatEl.scrollTop = chatEl.scrollHeight; },
+
+  user(text){
+    const d = document.createElement('div');
+    d.className = 'msg user';
+    d.innerHTML = `<div class="bubble"></div>`;
+    d.firstChild.textContent = text;
+    chatEl.appendChild(d);
+    this.scroll();
+  },
+
+  openDraft(){
+    const d = document.createElement('div');
+    d.className = 'msg agent';
+    d.innerHTML = `<div class="bubble cursor"></div>`;
+    const b = d.firstChild;
+    chatEl.appendChild(d);
+    this.scroll();
+    currentDraft = b;
+    return {
+      append(t){ b.textContent += t; ui.scroll(); },
+      close(){ b.classList.remove('cursor'); if (!b.textContent.trim()) d.remove(); }
+    };
+  },
+
+  step(n, thought, name, input){
+    const d = document.createElement('div');
+    d.className = 'step';
+    const t = thought ? `<b>思考：</b>${escapeHtml(thought)}\n` : '';
+    d.innerHTML = t + `第 ${n} 步 · 调用 <span class="act">${escapeHtml(name)}</span> ` +
+                  `<span style="opacity:.7">${escapeHtml(JSON.stringify(input))}</span>`;
+    chatEl.appendChild(d);
+    this.scroll();
+  },
+
+  obs(text, isError){
+    const d = document.createElement('div');
+    d.className = 'obs' + (isError ? ' err' : '');
+    d.textContent = (isError ? '✕ ' : '✓ ') + text;
+    chatEl.appendChild(d);
+    this.scroll();
+  },
+
+  final(text){
+    const d = document.createElement('div');
+    d.className = 'msg agent';
+    d.innerHTML = `<div class="bubble"></div>`;
+    d.firstChild.textContent = text;
+    chatEl.appendChild(d);
+    this.scroll();
+  }
+};
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+/* ---------- 配置读写 ---------- */
+
+function loadCfg(){
+  let c = {};
+  try { c = JSON.parse(localStorage.getItem('zx_cfg') || '{}'); } catch {}
+  return Object.assign({
+    mode: 'demo', preset: 'deepseek',
+    baseUrl: PRESETS.deepseek.baseUrl, model: PRESETS.deepseek.model,
+    apiKey: '', maxSteps: 8
+  }, c);
+}
+function saveCfg(c){ localStorage.setItem('zx_cfg', JSON.stringify(c)); }
+
+let CFG = loadCfg();
+
+function refreshStatus(){
+  $('status').textContent = CFG.mode === 'api'
+    ? `大模型模式 · ${CFG.model || '未配置'}`
+    : '演示模式 · 无需配置';
+}
+
+/* ---------- 设置抽屉 ---------- */
+
+function openDrawer(){
+  $('mode').value = CFG.mode;
+  $('preset').value = CFG.preset;
+  $('baseUrl').value = CFG.baseUrl;
+  $('model').value = CFG.model;
+  $('apiKey').value = CFG.apiKey;
+  $('maxSteps').value = CFG.maxSteps;
+  $('stepsVal').textContent = CFG.maxSteps;
+  $('apiBox').style.display = CFG.mode === 'api' ? 'block' : 'none';
+  $('drawer').classList.add('on');
+  $('mask').classList.add('on');
+}
+function closeDrawer(){
+  $('drawer').classList.remove('on');
+  $('mask').classList.remove('on');
+}
+
+$('btnSet').onclick = openDrawer;
+$('btnClose').onclick = closeDrawer;
+$('mask').onclick = closeDrawer;
+
+$('mode').onchange = e => {
+  $('apiBox').style.display = e.target.value === 'api' ? 'block' : 'none';
+};
+
+$('preset').onchange = e => {
+  const p = PRESETS[e.target.value];
+  if (e.target.value !== 'custom'){
+    $('baseUrl').value = p.baseUrl;
+    $('model').value = p.model;
+  }
+};
+
+$('maxSteps').oninput = e => { $('stepsVal').textContent = e.target.value; };
+
+$('btnSave').onclick = () => {
+  CFG = {
+    mode: $('mode').value,
+    preset: $('preset').value,
+    baseUrl: $('baseUrl').value.trim(),
+    model: $('model').value.trim(),
+    apiKey: $('apiKey').value.trim(),
+    maxSteps: Number($('maxSteps').value) || 8
+  };
+  if (CFG.mode === 'api' && (!CFG.baseUrl || !CFG.model || !CFG.apiKey)){
+    alert('大模型模式需要填写 Base URL、模型名称和 API Key');
+    return;
+  }
+  saveCfg(CFG);
+  refreshStatus();
+  closeDrawer();
+};
+
+$('btnClear').onclick = () => {
+  if (!confirm('清空当前对话？')) return;
+  chatEl.innerHTML = '<div class="tip">对话已清空</div>';
+};
+
+/* ---------- 输入与发送 ---------- */
+
+let busy = false;
+
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+  sendEl.disabled = !inputEl.value.trim() || busy;
+});
+
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){
+    e.preventDefault();
+    send();
+  }
+});
+
+sendEl.onclick = send;
+
+async function send(){
+  const task = inputEl.value.trim();
+  if (!task || busy) return;
+
+  busy = true;
+  sendEl.disabled = true;
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+
+  const tip = chatEl.querySelector('.tip');
+  if (tip) tip.remove();
+
+  ui.user(task);
+
+  try {
+    await runAgent(task, CFG, ui);
+  } catch (e){
+    ui.final('出错了：' + e.message);
+  } finally {
+    busy = false;
+    sendEl.disabled = !inputEl.value.trim();
+    // 让 iOS 键盘收起后输入框落回底部
+    setTimeout(() => ui.scroll(), 60);
+  }
+}
+
+/* ---------- 启动 ---------- */
+refreshStatus();
+
+// 监听键盘弹出，保证输入区可见
+if (window.visualViewport){
+  window.visualViewport.addEventListener('resize', () => {
+    setTimeout(() => ui.scroll(), 80);
+  });
+}
+</script>
+</body>
+</html>
